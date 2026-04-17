@@ -1,0 +1,15 @@
+type: string
+description: >
+  Текущее состояние жизненного цикла задачи:
+  * `backlog` - Задача создана, но еще не взята в работу.
+  * `in_progress` - Над задачей ведется работа.
+  * `on_hold` - Работа приостановлена (ждем ответа, заблокирована).
+  * `completed` - Задача успешно выполнена.
+  * `canceled` - Задача отменена и не будет выполнена.
+enum:
+  - backlog
+  - in_progress
+  - on_hold
+  - completed
+  - canceled
+example: "in_progress"

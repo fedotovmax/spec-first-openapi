@@ -1,0 +1,13 @@
+openapi: 3.0.3
+info:
+  title: Task Service API
+  version: 1.0.0
+  description: API для работы с данными о задачах!
+
+tags:
+  - name: Task
+    description: Операции с данными о задачах — получение и обновление информации
+
+paths:
+  /api/v1/tasks/{id}:
+    $ref: ./paths/task_by_id.yaml

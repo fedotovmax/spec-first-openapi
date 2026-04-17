@@ -1,0 +1,14 @@
+type: object
+required:
+  - message
+  - errors
+properties:
+  message:
+    type: string
+    description: Описание ошибки
+    example: Ошибка валидации
+  errors:
+    type: array
+    description: Список полей с ошибками валидации
+    items:
+      $ref: ./validation_error_item.yaml
