@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	task_v1 "github.com/fedotovmax/code-first-openapi/pkg/openapi/task/v1"
+	task_v1 "github.com/fedotovmax/spec-first-openapi/pkg/openapi/task/v1"
 	"github.com/go-chi/chi/v5"
 )
 

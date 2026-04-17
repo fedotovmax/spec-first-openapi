@@ -1,4 +1,4 @@
-module github.com/fedotovmax/code-first-openapi
+module github.com/fedotovmax/spec-first-openapi
 
 go 1.25.0
 
