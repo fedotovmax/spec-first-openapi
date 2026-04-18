@@ -10,15 +10,20 @@ vars:
   OAPI_CODEGEN_VERSION: "v2.6.0"
 
   PROJECT_GOBIN: "{{.ROOT_DIR}}/go/bin"
-  OAPI_CODEGEN: '{{.PROJECT_GOBIN}}/oapi-codegen'
+  OAPI_CODEGEN: "{{.PROJECT_GOBIN}}/oapi-codegen"
+  OPERATION_ID_TOOL: "{{.PROJECT_GOBIN}}/operation-id"
 
   GO_API_APP_ENTRYPOINT: "{{.ROOT_DIR}}/cmd/api/main.go"
+  OPERATION_ID_TOOL_PATH: "{{.ROOT_DIR}}/cmd/tools/operation-id"
+
+  OPERATION_ID_TOOL_OUTPUT: "{{.ROOT_DIR}}/pkg/openapi/operations/operations.go"
 
   OPEN_API_V1_SOURCE_FILE: "{{.ROOT_DIR}}/openapi/src/v1/v1.openapi.yaml"
   OPEN_API_V1_BUNDLE: "{{.ROOT_DIR}}/openapi/bundles/v1.openapi.bundle.yaml"
 
 tasks:
   redocly-cli:install:
+    silent: true
     desc: Установить локально Redocly CLI
     status:
      - "[ -f {{.REDOCLY}} ]"
@@ -27,12 +32,34 @@ tasks:
       - npm ci
 
   redocly-v1:bundle:
+    silent: true
     desc: Собрать OpenAPI v1 в один файл через локальный redocly 
     deps: [ redocly-cli:install ]
     cmds:
+      - echo "🛠️ Сборка OpenApi спецификации версии 1..."
       - "{{.REDOCLY}} bundle {{.OPEN_API_V1_SOURCE_FILE}} -o {{.OPEN_API_V1_BUNDLE}}"
+
+
+  operation-id-tool:install:
+    silent: true
+    desc: "Скачивает operation-id-tool в папку go/bin проекта"
+    status: 
+      - "[ -f {{.OPERATION_ID_TOOL}} ]"
+    cmds:
+      - echo "📦 Устанавливаем operation-id-tool..."
+      - mkdir -p {{.PROJECT_GOBIN}}
+      - GOBIN={{.PROJECT_GOBIN}} go install {{.OPERATION_ID_TOOL_PATH}}
   
+  operation-id-tool:gen:
+    silent: true
+    desc: "Генерируем ID операций из спецификации в go пакет"
+    deps: [ operation-id-tool:install ]
+    cmds:
+      - echo "🛠️ Генерация ID операций..."
+      - "{{.OPERATION_ID_TOOL}} -spec {{.OPEN_API_V1_BUNDLE}} -out {{.OPERATION_ID_TOOL_OUTPUT}}"
+
   oapi-codegen:install:
+    silent: true
     desc: "Скачивает oapi-codegen в папку go/bin проекта"
     status: 
       - "[ -f {{.OAPI_CODEGEN}} ]"
@@ -42,15 +69,20 @@ tasks:
        - GOBIN={{.PROJECT_GOBIN}} go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@{{.OAPI_CODEGEN_VERSION}}
 
   oapi-codegen-v1:gen:
+    silent: true
     desc: "Генерация Go-кода из всех OpenAPI-декларации"
     deps: [ oapi-codegen:install ]
     cmds: 
       - task redocly-v1:bundle
+      - echo "🛠️ Генерация через oapi codegen"
       - "{{.OAPI_CODEGEN}} -config oapi-codegen.yaml {{.OPEN_API_V1_BUNDLE}}" 
+      - task operation-id-tool:gen
 
   go-dev:run:
+    silent: true
     desc: "Запуск go run"
     cmds:
+      - echo "🏁 Запуск go приложения"
       - go run {{.GO_API_APP_ENTRYPOINT}}
 
 

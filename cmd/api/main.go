@@ -9,6 +9,7 @@ import (
 
 	"github.com/fedotovmax/spec-first-openapi/domain"
 	api_v1 "github.com/fedotovmax/spec-first-openapi/pkg/openapi/api/v1"
+	"github.com/fedotovmax/spec-first-openapi/pkg/openapi/operations"
 	"github.com/fedotovmax/spec-first-openapi/transport/http/response"
 	"github.com/go-chi/chi/v5"
 	"github.com/oapi-codegen/runtime/strictmiddleware/nethttp"
@@ -39,6 +40,11 @@ func ToContext(ctx context.Context, req *http.Request) context.Context {
 func RequestContext(f nethttp.StrictHTTPHandlerFunc, operationID string) nethttp.StrictHTTPHandlerFunc {
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (response interface{}, err error) {
 		fmt.Println("--> RequestContext middleware")
+
+		if operationID == operations.PatchTaskByID {
+			fmt.Println("Перехватил PatchTaskByID")
+		}
+
 		ctx = ToContext(ctx, r)
 		return f(ctx, w, r, request)
 	}
