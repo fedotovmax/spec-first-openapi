@@ -168,36 +168,65 @@ func ToContext(ctx context.Context, req *http.Request) context.Context {
 	)
 }
 
-func RequestContext(f nethttp.StrictHTTPHandlerFunc, operationID string) nethttp.StrictHTTPHandlerFunc {
-	return func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (response interface{}, err error) {
-		fmt.Println("--> RequestContext middleware")
-
-		if operationID == operations.PatchTaskByID {
-			fmt.Println("Перехватил PatchTaskByID")
-		}
-
-		ctx = ToContext(ctx, r)
-		return f(ctx, w, r, request)
-	}
-}
-
-func AuthMiddleware(next http.Handler) http.Handler {
+func GlobalMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("--> Чек: авторизация")
+		fmt.Println("-> GlobalMiddleware")
 		next.ServeHTTP(w, r)
 	})
+}
+
+func RequestContextMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		fmt.Println("-> RequestContextMiddleware!")
+
+		ctx := ToContext(r.Context(), r)
+
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+type RouteSettings struct {
+	NeedAuth bool
+}
+
+func NewStrictAuthMiddleware(ops map[string]RouteSettings) func(nethttp.StrictHTTPHandlerFunc, string) nethttp.StrictHTTPHandlerFunc {
+	return func(f nethttp.StrictHTTPHandlerFunc, operationID string) nethttp.StrictHTTPHandlerFunc {
+		return func(ctx context.Context, w http.ResponseWriter, r *http.Request, req interface{}) (res interface{}, err error) {
+			if ops[operationID].NeedAuth {
+				fmt.Println("🛡️ Проверка доступа для:", operationID)
+				rh := response.NewHTTPResponseHandler(w)
+
+				rh.JSON(api_v1.Error{Message: "Unauthorized"}, http.StatusUnauthorized)
+				return nil, nil
+			}
+
+			return f(ctx, w, r, req)
+
+		}
+	}
 }
 
 type Server struct {
 }
 
 func (s *Server) GetTaskByID(ctx context.Context, request api_v1.GetTaskByIDRequestObject) (api_v1.GetTaskByIDResponseObject, error) {
+
+	taskID, err := uuid.Parse(request.Id)
+
+	if err != nil {
+		return api_v1.GetTaskByID400JSONResponse{
+			Errors:  nil,
+			Message: err.Error(),
+		}, nil
+	}
+
 	httpReq := RequextFromContext(ctx)
 	fmt.Println("Request url", httpReq.URL)
 	fmt.Println("Request ip", httpReq.RemoteAddr)
 	fmt.Println("Request agent", httpReq.Header.Get("User-Agent"))
-	fmt.Println(request.Id)
-	return nil, nil
+	fmt.Println("Get task request id", taskID)
+	return api_v1.GetTaskByID200JSONResponse{Id: taskID.String()}, nil
 }
 
 type ServiceInput struct {
@@ -220,6 +249,14 @@ func (s *Server) PatchTaskByID(ctx context.Context, request api_v1.PatchTaskByID
 
 	fmt.Println("Patch Request id", taskID)
 
+	if request.Body.Status != nil {
+		if request.Body.Status.Valid() {
+			fmt.Println("Status правильный")
+		} else {
+			fmt.Println("Status НЕправильный")
+		}
+	}
+
 	in := ServiceInput{
 		Title: request.Body.Title.ToDomain(),
 		ID:    taskID,
@@ -238,42 +275,25 @@ func (r *PatchTaskRequest) Validate() error {
 func main() {
 	mux := chi.NewRouter()
 
-	mux.Use(func(h http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			fmt.Println("-> Global middleware!")
-			h.ServeHTTP(w, r)
-		})
-	})
+	mux.Use(
+		GlobalMiddleware,
+		RequestContextMiddleware,
+	)
 
 	apiV1 := &Server{}
 
-	v1StrictOptions := api_v1.StrictHTTPServerOptions{
-		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
-			rh := response.NewHTTPResponseHandler(w)
-			rh.JSON(api_v1.Error{Message: err.Error()}, http.StatusBadRequest)
-		},
-		ResponseErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
-			rh := response.NewHTTPResponseHandler(w)
-			rh.JSON(api_v1.Error{Message: err.Error()}, http.StatusInternalServerError)
-		},
+	ops := map[string]RouteSettings{
+		operations.GetTaskByID:   {NeedAuth: true},
+		operations.PatchTaskByID: {NeedAuth: false},
 	}
 
-	v1StrictHandler := api_v1.NewStrictHandlerWithOptions(
-		apiV1,
-		[]api_v1.StrictMiddlewareFunc{
-			RequestContext,
-		},
-		v1StrictOptions,
-	)
+	strictAuthMiddleware := NewStrictAuthMiddleware(ops)
 
-	v1ChiOptions := api_v1.ChiServerOptions{
-		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
-			rh := response.NewHTTPResponseHandler(w)
-			rh.JSON(api_v1.Error{Message: err.Error()}, http.StatusBadRequest)
-		},
-	}
+	v1StrictHandler := api_v1.NewStrictHandler(apiV1, []api_v1.StrictMiddlewareFunc{
+		strictAuthMiddleware,
+	})
 
-	v1Handler := api_v1.HandlerWithOptions(v1StrictHandler, v1ChiOptions)
+	v1Handler := api_v1.Handler(v1StrictHandler)
 
 	mux.Mount("/api/v1", v1Handler)
 
