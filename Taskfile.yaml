@@ -14,8 +14,8 @@ vars:
 
   GO_API_APP_ENTRYPOINT: "{{.ROOT_DIR}}/cmd/api/main.go"
 
-  OPEN_API_TASKS_V1_SOURCE_FILE: "{{.ROOT_DIR}}/openapi/src/tasks/v1/tasks.openapi.yaml"
-  OPEN_API_TASK_V1_BUNDLE: "{{.ROOT_DIR}}/openapi/bundles/tasks.openapi.v1.bundle.yaml"
+  OPEN_API_V1_SOURCE_FILE: "{{.ROOT_DIR}}/openapi/src/v1/v1.openapi.yaml"
+  OPEN_API_V1_BUNDLE: "{{.ROOT_DIR}}/openapi/bundles/v1.openapi.bundle.yaml"
 
 tasks:
   redocly-cli:install:
@@ -26,11 +26,11 @@ tasks:
       - echo "📦 Устанавливаем redocly-cli..."
       - npm ci
 
-  redocly-task-v1:bundle:
-    desc: Собрать OpenAPI Tasks v1 в один файл через локальный redocly 
+  redocly-v1:bundle:
+    desc: Собрать OpenAPI v1 в один файл через локальный redocly 
     deps: [ redocly-cli:install ]
     cmds:
-      - "{{.REDOCLY}} bundle {{.OPEN_API_TASKS_V1_SOURCE_FILE}} -o {{.OPEN_API_TASK_V1_BUNDLE}}"
+      - "{{.REDOCLY}} bundle {{.OPEN_API_V1_SOURCE_FILE}} -o {{.OPEN_API_V1_BUNDLE}}"
   
   oapi-codegen:install:
     desc: "Скачивает oapi-codegen в папку go/bin проекта"
@@ -41,12 +41,12 @@ tasks:
        - mkdir -p {{.PROJECT_GOBIN}}
        - GOBIN={{.PROJECT_GOBIN}} go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@{{.OAPI_CODEGEN_VERSION}}
 
-  oapi-codegen-task-v1:gen:
+  oapi-codegen-v1:gen:
     desc: "Генерация Go-кода из всех OpenAPI-декларации"
     deps: [ oapi-codegen:install ]
     cmds: 
-      - task redocly-task-v1:bundle
-      - "{{.OAPI_CODEGEN}} -o pkg/openapi/task/v1/task_api.gen.go -package task_v1 -generate chi-server,strict-server,types {{.OPEN_API_TASK_V1_BUNDLE}}" 
+      - task redocly-v1:bundle
+      - "{{.OAPI_CODEGEN}} -config oapi-codegen.yaml {{.OPEN_API_V1_BUNDLE}}" 
 
   go-dev:run:
     desc: "Запуск go run"

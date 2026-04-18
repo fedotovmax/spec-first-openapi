@@ -1,0 +1,83 @@
+parameters:
+  - $ref: ../params/id.yaml
+
+get:
+  summary: Get task by id
+  operationId: GetTaskByID
+  tags:
+    - Task
+  responses:
+    '200':
+      description: Task information successfully retrieved
+      content:
+        application/json:
+          schema:
+            $ref: ../components/task.yaml
+    '404':
+      description: Task data for specified id not found
+      content:
+        application/json:
+          schema:
+            $ref: ../../shared/errors/error.yaml
+    '400':
+      description: Bad request - validation error
+      content:
+        application/json:
+          schema:
+            $ref: ../../shared/errors/validation_error.yaml
+    '500':
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: ../../shared/errors/error.yaml
+    default:
+      description: Unexpected error
+      content:
+        application/json:
+          schema:
+            $ref: ../../shared/errors/error.yaml
+
+patch:
+  summary: Patch task by id
+  operationId: PatchTaskByID
+  tags:
+    - Task
+  requestBody:
+    description: Patch task with request body object
+    content:
+      application/json:
+        schema:
+          $ref: ../components/update_task.yaml
+    required: true
+  responses:
+    '200':
+      description: Task successfully patched
+      content:
+        application/json:
+          schema:
+            $ref: ../../shared/responses/ok.yaml
+    '404':
+      description: Task data for specified id not found
+      content:
+        application/json:
+          schema:
+            $ref: ../../shared/errors/error.yaml
+    '400':
+      description: Bad request - validation error
+      content:
+        application/json:
+          schema:
+            $ref: ../../shared/errors/validation_error.yaml
+    '500':
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: ../../shared/errors/error.yaml
+    default:
+      description: Unexpected error
+      content:
+        application/json:
+          schema:
+            $ref: ../../shared/errors/error.yaml

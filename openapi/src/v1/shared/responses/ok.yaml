@@ -1,0 +1,8 @@
+type: object
+required:
+  - ok
+properties:
+  ok:
+    type: boolean
+    description: Флаг - все хорошо или нет
+    example: true

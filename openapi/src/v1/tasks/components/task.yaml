@@ -9,7 +9,6 @@ properties:
   id:
     type: string
     description: ID задачи
-    format: uuid
     example: "acde070d-8c4c-4f0d-9d8a-162843c10333"
   title:
     type: string
@@ -20,7 +19,7 @@ properties:
     description: Отвечает за скрытость или видимость задачи
     example: true
   status:
-    $ref: ./enums/status.yaml
+    $ref: ../enums/status.yaml
   created_at:
     type: string
     format: date-time

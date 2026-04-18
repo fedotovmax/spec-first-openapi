@@ -1,0 +1,23 @@
+type: object
+properties:
+  title:
+    type: string
+    description: Заголовок задачи
+    example: Задача 1
+    nullable: true
+    minLength: 3   # Минимальная длина
+    maxLength: 50  # Максимальная длина
+    x-go-type: request.Nullable[string]
+    x-go-type-skip-optional-pointer: true
+  is_active:
+    type: boolean
+    description: Отвечает за скрытость или видимость задачи
+    example: true
+    nullable: true
+  status:
+    $ref: ../enums/status.yaml
+    nullable: true
+
+
+
+    

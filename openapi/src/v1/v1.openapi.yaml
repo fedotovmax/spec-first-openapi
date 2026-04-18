@@ -4,10 +4,14 @@ info:
   version: 1.0.0
   description: API для работы с данными о задачах!
 
+servers:
+  - url: /api/v1
+    description: v1 prefix
+
 tags:
   - name: Task
     description: Операции с данными о задачах — получение и обновление информации
 
 paths:
-  /api/v1/tasks/{id}:
-    $ref: ./paths/task_by_id.yaml
+ /tasks/{id}:
+    $ref: ./tasks/paths/task_by_id.yaml

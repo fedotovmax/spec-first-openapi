@@ -3,11 +3,14 @@ info:
   title: Task Service API
   version: 1.0.0
   description: API для работы с данными о задачах!
+servers:
+  - url: /api/v1
+    description: v1 prefix
 tags:
   - name: Task
     description: Операции с данными о задачах — получение и обновление информации
 paths:
-  /api/v1/tasks/{id}:
+  /tasks/{id}:
     parameters:
       - $ref: '#/components/parameters/id'
     get:
@@ -46,16 +49,58 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/error'
+    patch:
+      summary: Patch task by id
+      operationId: PatchTaskByID
+      tags:
+        - Task
+      requestBody:
+        description: Patch task with request body object
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/update_task'
+        required: true
+      responses:
+        '200':
+          description: Task successfully patched
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ok'
+        '400':
+          description: Bad request - validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/validation_error'
+        '404':
+          description: Task data for specified id not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/error'
 components:
   parameters:
     id:
       name: id
       in: path
       required: true
-      description: id задачи
+      description: id задачи в формате uuid
       schema:
         type: string
-        format: uuid
         example: acde070d-8c4c-4f0d-9d8a-162843c10333
   schemas:
     error:
@@ -90,7 +135,6 @@ components:
         id:
           type: string
           description: ID задачи
-          format: uuid
           example: acde070d-8c4c-4f0d-9d8a-162843c10333
         title:
           type: string
@@ -136,3 +180,32 @@ components:
           description: Список полей с ошибками валидации
           items:
             $ref: '#/components/schemas/validation_error_item'
+    update_task:
+      type: object
+      properties:
+        title:
+          type: string
+          description: Заголовок задачи
+          example: Задача 1
+          nullable: true
+          minLength: 3
+          maxLength: 50
+          x-go-type: request.Nullable[string]
+          x-go-type-skip-optional-pointer: true
+        is_active:
+          type: boolean
+          description: Отвечает за скрытость или видимость задачи
+          example: true
+          nullable: true
+        status:
+          $ref: '#/components/schemas/status'
+          nullable: true
+    ok:
+      type: object
+      required:
+        - ok
+      properties:
+        ok:
+          type: boolean
+          description: Флаг - все хорошо или нет
+          example: true
