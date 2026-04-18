@@ -7,6 +7,15 @@ generate:
 
 output-options:
   nullable-type: false
-
+  type-mapping:
+    string: # Указываем базовый тип OpenAPI
+      formats: # Секция для маппинга форматов этого типа
+        email:
+          type: string
+        ipv4:
+          type: string
+        uuid:
+          type: string
+  
 import-mapping:
   request: github.com/fedotovmax/spec-first-openapi/transport/http/request

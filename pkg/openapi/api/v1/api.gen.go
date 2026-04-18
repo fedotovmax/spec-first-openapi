@@ -78,6 +78,12 @@ type Task struct {
 
 // UpdateTask defines model for update_task.
 type UpdateTask struct {
+	// Email Адрес эл.почти
+	Email string `json:"email"`
+
+	// Ip IP адрес
+	Ip *string `json:"ip,omitempty"`
+
 	// IsActive Отвечает за скрытость или видимость задачи
 	IsActive *bool `json:"is_active,omitempty"`
 
@@ -91,7 +97,7 @@ type UpdateTask struct {
 // ValidationError defines model for validation_error.
 type ValidationError struct {
 	// Errors Список полей с ошибками валидации
-	Errors []ValidationErrorItem `json:"errors"`
+	Errors *[]ValidationErrorItem `json:"errors,omitempty"`
 
 	// Message Описание ошибки
 	Message string `json:"message"`
@@ -155,7 +161,7 @@ func (siw *ServerInterfaceWrapper) GetTaskByID(w http.ResponseWriter, r *http.Re
 	// ------------- Path parameter "id" -------------
 	var id Id
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
 	if err != nil {
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
 		return
@@ -180,7 +186,7 @@ func (siw *ServerInterfaceWrapper) PatchTaskByID(w http.ResponseWriter, r *http.
 	// ------------- Path parameter "id" -------------
 	var id Id
 
-	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
 	if err != nil {
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
 		return

@@ -4,4 +4,5 @@ required: true
 description: id задачи в формате uuid
 schema: 
   type: string
+  format: uuid
   example: "acde070d-8c4c-4f0d-9d8a-162843c10333"

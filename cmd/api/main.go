@@ -12,6 +12,7 @@ import (
 	"github.com/fedotovmax/spec-first-openapi/pkg/openapi/operations"
 	"github.com/fedotovmax/spec-first-openapi/transport/http/response"
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/oapi-codegen/runtime/strictmiddleware/nethttp"
 )
 
@@ -71,20 +72,37 @@ func (s *Server) GetTaskByID(ctx context.Context, request api_v1.GetTaskByIDRequ
 
 type ServiceInput struct {
 	Title domain.Nullable[string]
+	ID    uuid.UUID
 }
 
 type PatchTaskRequest api_v1.UpdateTask
 
+func (s *Server) PatchTaskByID(ctx context.Context, request api_v1.PatchTaskByIDRequestObject) (api_v1.PatchTaskByIDResponseObject, error) {
+
+	taskID, err := uuid.Parse(request.Id)
+
+	if err != nil {
+		return api_v1.PatchTaskByID400JSONResponse{
+			Errors:  nil,
+			Message: err.Error(),
+		}, nil
+	}
+
+	fmt.Println("Patch Request id", taskID)
+
+	in := ServiceInput{
+		Title: request.Body.Title.ToDomain(),
+		ID:    taskID,
+	}
+
+	_ = in
+
+	return api_v1.PatchTaskByID200JSONResponse{Ok: true}, nil
+}
+
 func (r *PatchTaskRequest) Validate() error {
 
 	return nil
-}
-
-func (s *Server) PatchTaskByID(ctx context.Context, request api_v1.PatchTaskByIDRequestObject) (api_v1.PatchTaskByIDResponseObject, error) {
-
-	fmt.Println(request.Body.Title.Set)
-
-	return nil, nil
 }
 
 func main() {
@@ -100,8 +118,14 @@ func main() {
 	apiV1 := &Server{}
 
 	v1StrictOptions := api_v1.StrictHTTPServerOptions{
-		RequestErrorHandlerFunc:  func(w http.ResponseWriter, r *http.Request, err error) {},
-		ResponseErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {},
+		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
+			rh := response.NewHTTPResponseHandler(w)
+			rh.JSON(api_v1.Error{Message: err.Error()}, http.StatusBadRequest)
+		},
+		ResponseErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
+			rh := response.NewHTTPResponseHandler(w)
+			rh.JSON(api_v1.Error{Message: err.Error()}, http.StatusInternalServerError)
+		},
 	}
 
 	v1StrictHandler := api_v1.NewStrictHandlerWithOptions(

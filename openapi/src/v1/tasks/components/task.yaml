@@ -10,6 +10,7 @@ properties:
     type: string
     description: ID задачи
     example: "acde070d-8c4c-4f0d-9d8a-162843c10333"
+    format: uuid
   title:
     type: string
     description: Заголовок задачи
