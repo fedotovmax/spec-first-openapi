@@ -1,0 +1,8 @@
+package: api_v1
+output: pkg/openapi/api/v1/api.gen.go
+generate:
+  chi-server: true
+  models: true
+
+output-options:
+  nullable-type: true
