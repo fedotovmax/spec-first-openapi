@@ -15,6 +15,7 @@ vars:
   OPERATION_ID_TOOL: "{{.PROJECT_GOBIN}}/operation-id"
 
   GO_API_APP_ENTRYPOINT: "{{.ROOT_DIR}}/cmd/api/main.go"
+  GO_API_CLIENT_APP_ENTRYPOINT: "{{.ROOT_DIR}}/cmd/client/main.go"
   OPERATION_ID_TOOL_PATH: "{{.ROOT_DIR}}/cmd/tools/operation-id"
 
 tasks:
@@ -50,6 +51,51 @@ tasks:
 
   # --- Логика генерации ---
 
+  # oapi-codegen:gen-v:
+  #   silent: true
+  #   internal: true
+  #   deps: [ oapi-codegen:install, operation-id-tool:install, redocly-cli:install ]
+  #   vars:
+  #     SOURCE_FILE: "{{.ROOT_DIR}}/openapi/src/{{.V}}/{{.V}}.openapi.yaml"
+  #     BUNDLE_FILE: "{{.ROOT_DIR}}/openapi/bundles/{{.V}}.openapi.bundle.yaml"
+  #     TARGET_DIR: "{{.ROOT_DIR}}/pkg/openapi/api/{{.V}}"
+  #     OPS_OUTPUT: "{{.ROOT_DIR}}/pkg/openapi/operations_{{.V}}/operations.go"
+  #     # Путь к временному конфигу
+  #     TMP_CONFIG: "{{.TARGET_DIR}}/oapi-codegen.tmp.yaml"
+  #   cmds:
+  #     # 1. Сборка бандла
+  #     - echo "🛠️ Сборка бандла для версии {{.V}}..."
+  #     - mkdir -p {{.ROOT_DIR}}/openapi/bundles
+  #     - "{{.REDOCLY}} bundle {{.SOURCE_FILE}} -o {{.BUNDLE_FILE}}"
+
+  #     # 2. Очистка и создание папки
+  #     - echo "🧹 Подготовка папки {{.TARGET_DIR}}..."
+  #     - rm -rf {{.TARGET_DIR}}
+  #     - mkdir -p {{.TARGET_DIR}}
+
+  #     # 3. Создание динамического конфига с nullable-type
+  #     - echo "📝 Создание конфига для {{.V}}..."
+  #     - |
+  #       cat <<EOF > {{.TMP_CONFIG}}
+  #       package: api_{{.V}}
+  #       output: {{.TARGET_DIR}}/api.gen.go
+  #       generate:
+  #         chi-server: true
+  #         models: true
+  #       output-options:
+  #         nullable-type: true
+  #       EOF
+
+  #     # 4. Генерация кода через временный конфиг
+  #     - echo "⚙️ Генерация кода для {{.V}}..."
+  #     - "{{.OAPI_CODEGEN}} -config {{.TMP_CONFIG}} {{.BUNDLE_FILE}}"
+      
+  #     # Удаляем временный конфиг после генерации (опционально)
+  #     - rm {{.TMP_CONFIG}}
+
+  #     # 5. ID операций
+  #     - echo "🆔 Генерация ID операций для {{.V}}..."
+  #     - "{{.OPERATION_ID_TOOL}} -spec {{.BUNDLE_FILE}} -out {{.OPS_OUTPUT}}"
   oapi-codegen:gen-v:
     silent: true
     internal: true
@@ -58,24 +104,26 @@ tasks:
       SOURCE_FILE: "{{.ROOT_DIR}}/openapi/src/{{.V}}/{{.V}}.openapi.yaml"
       BUNDLE_FILE: "{{.ROOT_DIR}}/openapi/bundles/{{.V}}.openapi.bundle.yaml"
       TARGET_DIR: "{{.ROOT_DIR}}/pkg/openapi/api/{{.V}}"
+      CLIENT_DIR: "{{.ROOT_DIR}}/pkg/openapi/client/{{.V}}"
       OPS_OUTPUT: "{{.ROOT_DIR}}/pkg/openapi/operations_{{.V}}/operations.go"
-      # Путь к временному конфигу
-      TMP_CONFIG: "{{.TARGET_DIR}}/oapi-codegen.tmp.yaml"
+      # Пути к временным конфигам
+      TMP_SRV_CONFIG: "{{.TARGET_DIR}}/oapi-server.tmp.yaml"
+      TMP_CLI_CONFIG: "{{.CLIENT_DIR}}/oapi-client.tmp.yaml"
     cmds:
       # 1. Сборка бандла
       - echo "🛠️ Сборка бандла для версии {{.V}}..."
       - mkdir -p {{.ROOT_DIR}}/openapi/bundles
       - "{{.REDOCLY}} bundle {{.SOURCE_FILE}} -o {{.BUNDLE_FILE}}"
 
-      # 2. Очистка и создание папки
-      - echo "🧹 Подготовка папки {{.TARGET_DIR}}..."
-      - rm -rf {{.TARGET_DIR}}
-      - mkdir -p {{.TARGET_DIR}}
+      # 2. Очистка и создание папок
+      - echo "🧹 Подготовка папок для {{.V}}..."
+      - rm -rf {{.TARGET_DIR}} {{.CLIENT_DIR}}
+      - mkdir -p {{.TARGET_DIR}} {{.CLIENT_DIR}}
 
-      # 3. Создание динамического конфига с nullable-type
-      - echo "📝 Создание конфига для {{.V}}..."
+      # 3. Генерация СЕРВЕРА
+      - echo "📝 Создание конфига сервера для {{.V}}..."
       - |
-        cat <<EOF > {{.TMP_CONFIG}}
+        cat <<EOF > {{.TMP_SRV_CONFIG}}
         package: api_{{.V}}
         output: {{.TARGET_DIR}}/api.gen.go
         generate:
@@ -84,16 +132,29 @@ tasks:
         output-options:
           nullable-type: true
         EOF
+      - echo "⚙️ Генерация СЕРВЕРА для {{.V}}..."
+      - "{{.OAPI_CODEGEN}} -config {{.TMP_SRV_CONFIG}} {{.BUNDLE_FILE}}"
+      - rm {{.TMP_SRV_CONFIG}}
 
-      # 4. Генерация кода через временный конфиг
-      - echo "⚙️ Генерация кода для {{.V}}..."
-      - "{{.OAPI_CODEGEN}} -config {{.TMP_CONFIG}} {{.BUNDLE_FILE}}"
-      
-      # Удаляем временный конфиг после генерации (опционально)
-      - rm {{.TMP_CONFIG}}
+      # 4. Генерация КЛИЕНТА
+      - echo "📝 Создание конфига клиента для {{.V}}..."
+      - |
+        cat <<EOF > {{.TMP_CLI_CONFIG}}
+        package: client_{{.V}}
+        output: {{.CLIENT_DIR}}/client.gen.go
+        generate:
+          client: true
+          models: true
+        output-options:
+          nullable-type: true
+        EOF
+      - echo "⚙️ Генерация КЛИЕНТА для {{.V}}..."
+      - "{{.OAPI_CODEGEN}} -config {{.TMP_CLI_CONFIG}} {{.BUNDLE_FILE}}"
+      - rm {{.TMP_CLI_CONFIG}}
 
       # 5. ID операций
       - echo "🆔 Генерация ID операций для {{.V}}..."
+      - mkdir -p $(dirname {{.OPS_OUTPUT}})
       - "{{.OPERATION_ID_TOOL}} -spec {{.BUNDLE_FILE}} -out {{.OPS_OUTPUT}}"
 
   
@@ -105,9 +166,16 @@ tasks:
         task: oapi-codegen:gen-v
         vars: { V: "{{.ITEM}}" }
 
-  go-dev:run:
+  go-api:run:
     silent: true
-    desc: "Запуск go run"
+    desc: "Запуск API Server Go"
     cmds:
       - echo "🏁 Запуск go приложения"
       - go run {{.GO_API_APP_ENTRYPOINT}}
+
+  go-client:run:
+    silent: true
+    desc: "Запуск API Client Go"
+    cmds:
+      - echo "🏁 Запуск go приложения"
+      - go run {{.GO_API_CLIENT_APP_ENTRYPOINT}}

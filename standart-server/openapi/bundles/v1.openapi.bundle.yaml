@@ -3,19 +3,19 @@ info:
   title: Task Service API v1
   version: 1.0.0
   description: API v1 для работы с данными о задачах!
-servers:
-  - url: /api/v1
-    description: v1 prefix
 tags:
   - name: Task
     description: Операции с данными о задачах — получение и обновление информации
 paths:
-  /tasks/{id}:
+  /api/v1/tasks/{id}:
     parameters:
       - $ref: '#/components/parameters/id'
     get:
       summary: Get task by id
       operationId: GetTaskByID
+      x-operation-middlewares:
+        - auth
+        - admin
       tags:
         - Task
       responses:
@@ -52,6 +52,9 @@ paths:
     patch:
       summary: Patch task by id
       operationId: PatchTaskByID
+      x-operation-middlewares:
+        - admin
+        - auth
       tags:
         - Task
       requestBody:

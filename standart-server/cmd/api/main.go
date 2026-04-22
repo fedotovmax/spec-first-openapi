@@ -8,11 +8,14 @@ import (
 	"strconv"
 	"strings"
 
+	"time"
+
 	"github.com/fedotovmax/spec-first-openapi/domain"
 	api_v1 "github.com/fedotovmax/spec-first-openapi/pkg/openapi/api/v1"
 	"github.com/fedotovmax/spec-first-openapi/pkg/openapi/operations_v1"
 	"github.com/fedotovmax/spec-first-openapi/transport/http/response"
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/oapi-codegen/nullable"
 	"github.com/oapi-codegen/runtime/types"
 )
@@ -70,6 +73,12 @@ type RouteSettings struct {
 	Middlewares []Middleware
 }
 
+// Реестр доступных middleware
+var middlewareRegistry = map[string]Middleware{
+	operations_v1.MwAuth:  AuthMiddleware,
+	operations_v1.MwAdmin: AdminMiddleware,
+}
+
 func GlobalMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("-> GlobalMiddleware")
@@ -84,31 +93,26 @@ func AuthMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func NewOperationIDMiddleware(
-	prefix string,
-	opsToPattern map[string]string,
-	ops map[string]RouteSettings,
-) func(http.Handler) http.Handler {
+func AdminMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("-> AdminMiddleware")
+		next.ServeHTTP(w, r)
+	})
+}
+
+func NewOperationIDMiddleware(opsToPattern map[string]string, ops map[string]RouteSettings) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			rctx := chi.RouteContext(r.Context())
-			// Находим чистый путь для мапы
 			pattern := rctx.RoutePattern()
-			externalPath := strings.TrimPrefix(pattern, prefix)
-			key := fmt.Sprintf("%s %s", strings.ToUpper(r.Method), externalPath)
+			key := fmt.Sprintf("%s %s", strings.ToUpper(r.Method), pattern)
 
-			// Проверяем, есть ли настройки для этого OperationID
 			if opID, ok := opsToPattern[key]; ok {
-				fmt.Println("OP", opID)
 				if settings, exists := ops[opID]; exists && len(settings.Middlewares) > 0 {
-					// Используем твой Chain, чтобы обернуть "next" (твой хендлер сервера)
-					// в специфичные для этого роута middleware
-					wrappedHandler := Chain(next, settings.Middlewares...)
-					wrappedHandler.ServeHTTP(w, r)
+					Chain(next, settings.Middlewares...).ServeHTTP(w, r)
 					return
 				}
 			}
-
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -117,7 +121,17 @@ func NewOperationIDMiddleware(
 type Server struct{}
 
 func (h *Server) GetTaskByID(w http.ResponseWriter, r *http.Request, id api_v1.Id) {
+	rh := response.NewHTTPResponseHandler(w)
 
+	t := api_v1.Task{
+		CreatedAt: time.Now(),
+		Id:        uuid.New(),
+		IsActive:  true,
+		Status:    api_v1.Completed,
+		Title:     "New Task 1",
+	}
+
+	rh.JSON(t, http.StatusOK)
 }
 
 func (h *Server) PatchTaskByID(w http.ResponseWriter, r *http.Request, id api_v1.Id) {
@@ -154,17 +168,18 @@ func main() {
 
 	apiImplV1 := &Server{}
 
-	v1Prefix := "/api/v1"
-
-	opsv1 := map[string]RouteSettings{
-		operations_v1.GetTaskByID: {
-			Middlewares: []Middleware{
-				AuthMiddleware,
-			},
-		},
+	opsv1 := make(map[string]RouteSettings)
+	for opID, mwNames := range operations_v1.OperationMiddlewares {
+		settings := RouteSettings{}
+		for _, name := range mwNames {
+			if mw, ok := middlewareRegistry[name]; ok {
+				settings.Middlewares = append(settings.Middlewares, mw)
+			}
+		}
+		opsv1[opID] = settings
 	}
 
-	operationIDMiddlewareV1 := NewOperationIDMiddleware(v1Prefix, operations_v1.PathToOperationID, opsv1)
+	operationIDMiddlewareV1 := NewOperationIDMiddleware(operations_v1.PathToOperationID, opsv1)
 
 	apiOptionsV1 := api_v1.ChiServerOptions{
 		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
@@ -180,7 +195,11 @@ func main() {
 
 	v1Handler := api_v1.HandlerWithOptions(apiImplV1, apiOptionsV1)
 
-	mux.Mount(v1Prefix, v1Handler)
+	mux.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("Home page"))
+	})
+
+	mux.Mount("/", v1Handler)
 
 	port, err := strconv.Atoi(os.Getenv("PORT"))
 

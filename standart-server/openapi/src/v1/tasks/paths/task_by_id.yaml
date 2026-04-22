@@ -4,6 +4,9 @@ parameters:
 get:
   summary: Get task by id
   operationId: GetTaskByID
+  x-operation-middlewares:
+    - auth
+    - admin
   tags:
     - Task
   responses:
@@ -41,6 +44,9 @@ get:
 patch:
   summary: Patch task by id
   operationId: PatchTaskByID
+  x-operation-middlewares:
+  - admin
+  - auth
   tags:
     - Task
   requestBody:

@@ -119,10 +119,10 @@ type PatchTaskByIDJSONRequestBody = UpdateTask
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Get task by id
-	// (GET /tasks/{id})
+	// (GET /api/v1/tasks/{id})
 	GetTaskByID(w http.ResponseWriter, r *http.Request, id Id)
 	// Patch task by id
-	// (PATCH /tasks/{id})
+	// (PATCH /api/v1/tasks/{id})
 	PatchTaskByID(w http.ResponseWriter, r *http.Request, id Id)
 }
 
@@ -131,13 +131,13 @@ type ServerInterface interface {
 type Unimplemented struct{}
 
 // Get task by id
-// (GET /tasks/{id})
+// (GET /api/v1/tasks/{id})
 func (_ Unimplemented) GetTaskByID(w http.ResponseWriter, r *http.Request, id Id) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Patch task by id
-// (PATCH /tasks/{id})
+// (PATCH /api/v1/tasks/{id})
 func (_ Unimplemented) PatchTaskByID(w http.ResponseWriter, r *http.Request, id Id) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
@@ -315,10 +315,10 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/tasks/{id}", wrapper.GetTaskByID)
+		r.Get(options.BaseURL+"/api/v1/tasks/{id}", wrapper.GetTaskByID)
 	})
 	r.Group(func(r chi.Router) {
-		r.Patch(options.BaseURL+"/tasks/{id}", wrapper.PatchTaskByID)
+		r.Patch(options.BaseURL+"/api/v1/tasks/{id}", wrapper.PatchTaskByID)
 	})
 
 	return r
