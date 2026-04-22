@@ -10,7 +10,7 @@ import (
 
 	"github.com/fedotovmax/spec-first-openapi/domain"
 	api_v1 "github.com/fedotovmax/spec-first-openapi/pkg/openapi/api/v1"
-	"github.com/fedotovmax/spec-first-openapi/pkg/openapi/operations"
+	"github.com/fedotovmax/spec-first-openapi/pkg/openapi/operations_v1"
 	"github.com/fedotovmax/spec-first-openapi/transport/http/response"
 	"github.com/go-chi/chi/v5"
 	"github.com/oapi-codegen/nullable"
@@ -84,7 +84,11 @@ func AuthMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func NewOperationIDMiddleware(prefix string, ops map[string]RouteSettings) func(http.Handler) http.Handler {
+func NewOperationIDMiddleware(
+	prefix string,
+	opsToPattern map[string]string,
+	ops map[string]RouteSettings,
+) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			rctx := chi.RouteContext(r.Context())
@@ -94,7 +98,7 @@ func NewOperationIDMiddleware(prefix string, ops map[string]RouteSettings) func(
 			key := fmt.Sprintf("%s %s", strings.ToUpper(r.Method), externalPath)
 
 			// Проверяем, есть ли настройки для этого OperationID
-			if opID, ok := operations.PathToOperationID[key]; ok {
+			if opID, ok := opsToPattern[key]; ok {
 				fmt.Println("OP", opID)
 				if settings, exists := ops[opID]; exists && len(settings.Middlewares) > 0 {
 					// Используем твой Chain, чтобы обернуть "next" (твой хендлер сервера)
@@ -148,33 +152,33 @@ func main() {
 		GlobalMiddleware,
 	)
 
-	apiImpl := &Server{}
+	apiImplV1 := &Server{}
 
 	v1Prefix := "/api/v1"
 
-	ops := map[string]RouteSettings{
-		operations.GetTaskByID: {
+	opsv1 := map[string]RouteSettings{
+		operations_v1.GetTaskByID: {
 			Middlewares: []Middleware{
 				AuthMiddleware,
 			},
 		},
 	}
 
-	operationIDMiddleware := NewOperationIDMiddleware(v1Prefix, ops)
+	operationIDMiddlewareV1 := NewOperationIDMiddleware(v1Prefix, operations_v1.PathToOperationID, opsv1)
 
-	apiOptions := api_v1.ChiServerOptions{
+	apiOptionsV1 := api_v1.ChiServerOptions{
 		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
 			rh := response.NewHTTPResponseHandler(w)
 			rh.JSON(api_v1.Error{Message: err.Error()}, http.StatusBadRequest)
 		},
 		Middlewares: []api_v1.MiddlewareFunc{
 			func(next http.Handler) http.Handler {
-				return operationIDMiddleware(next)
+				return operationIDMiddlewareV1(next)
 			},
 		},
 	}
 
-	v1Handler := api_v1.HandlerWithOptions(apiImpl, apiOptions)
+	v1Handler := api_v1.HandlerWithOptions(apiImplV1, apiOptionsV1)
 
 	mux.Mount(v1Prefix, v1Handler)
 
