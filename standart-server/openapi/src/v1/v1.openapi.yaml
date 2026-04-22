@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
-  title: Task Service API
+  title: Task Service API v1
   version: 1.0.0
-  description: API для работы с данными о задачах!
+  description: API v1 для работы с данными о задачах!
 
 servers:
   - url: /api/v1

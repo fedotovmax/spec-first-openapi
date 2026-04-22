@@ -18,6 +18,7 @@ import (
 )
 
 func MapNullable[T any, R any](src nullable.Nullable[T], transform func(T) R) domain.Nullable[R] {
+
 	if !src.IsSpecified() {
 		return domain.Nullable[R]{Set: false}
 	}
