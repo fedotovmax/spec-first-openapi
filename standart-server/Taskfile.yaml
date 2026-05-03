@@ -3,7 +3,10 @@ version: '3'
 dotenv: ['.env']
 
 vars:
-  API_VERSIONS: ["v1"]
+ # API_VERSIONS: ["v1"]
+
+  API_VERSIONS:
+    sh: ls -d {{.ROOT_DIR}}/openapi/src/v*/ 2>/dev/null | xargs -I{} basename {}
 
   NODE_MODULES_BIN: "{{.ROOT_DIR}}/node_modules/.bin"
   REDOCLY: "{{.NODE_MODULES_BIN}}/redocly"
@@ -22,6 +25,9 @@ vars:
   OAPI_CLIENT_TPL: "{{.ROOT_DIR}}/oapi-client.yaml.tpl"
 
 tasks:
+  tt:
+    cmds:
+      - echo "{{.API_VERSIONS_TEST}}"
   # --- Твои установки БЕЗ изменений ---
   redocly-cli:install:
     silent: true
@@ -64,6 +70,8 @@ tasks:
       OPS_OUTPUT: "{{.ROOT_DIR}}/pkg/openapi/operations_{{.V}}/operations.go"
       TMP_SRV_CONFIG: "{{.TARGET_DIR}}/oapi-server.tmp.yaml"
       TMP_CLI_CONFIG: "{{.CLIENT_DIR}}/oapi-client.tmp.yaml"
+      SAFE_V:
+        sh: echo '{{.V}}' | tr '-' '_' | tr '.' '_'
     cmds:
       # 1. Сборка бандла
       - echo "🛠️ Сборка бандла для версии {{.V}}..."
@@ -81,7 +89,7 @@ tasks:
         vars:
           TPL: "{{.OAPI_SERVER_TPL}}"
           TMP_CONFIG: "{{.TMP_SRV_CONFIG}}"
-          PACKAGE: "api_{{.V}}"
+          PACKAGE: "api_{{.SAFE_V}}"
           OUTPUT_FILE: "{{.TARGET_DIR}}/api.gen.go"
           BUNDLE: "{{.BUNDLE_FILE}}"
 
@@ -91,14 +99,14 @@ tasks:
         vars:
           TPL: "{{.OAPI_CLIENT_TPL}}"
           TMP_CONFIG: "{{.TMP_CLI_CONFIG}}"
-          PACKAGE: "client_{{.V}}"
+          PACKAGE: "client_{{.SAFE_V}}"
           OUTPUT_FILE: "{{.CLIENT_DIR}}/client.gen.go"
           BUNDLE: "{{.BUNDLE_FILE}}"
 
       # 5. ID операций
       - echo "🆔 Генерация ID операций для {{.V}}..."
       - mkdir -p $(dirname {{.OPS_OUTPUT}})
-      - "{{.OPERATION_ID_TOOL}} -spec {{.BUNDLE_FILE}} -out {{.OPS_OUTPUT}}"
+      - "{{.OPERATION_ID_TOOL}} -spec {{.BUNDLE_FILE}} -out {{.OPS_OUTPUT}} -package operations_{{.SAFE_V}}"
 
   # Дополнительная таска для инкапсуляции логики шаблонизации и генерации
   internal:codegen:

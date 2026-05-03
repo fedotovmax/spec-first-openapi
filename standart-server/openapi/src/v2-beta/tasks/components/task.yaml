@@ -1,0 +1,28 @@
+type: object
+required:
+  - id
+  - title
+  - is_active
+  - status
+  - created_at
+properties:
+  id:
+    type: string
+    description: ID задачи
+    example: "acde070d-8c4c-4f0d-9d8a-162843c10333"
+    format: uuid
+  title:
+    type: string
+    description: Заголовок задачи
+    example: Задача 1
+  is_active:
+    type: boolean
+    description: Отвечает за скрытость или видимость задачи
+    example: true
+  status:
+    $ref: ../enums/status.yaml
+  created_at:
+    type: string
+    format: date-time
+    description: Время создания задачи
+    example: "2023-05-15T10:30:00Z" 

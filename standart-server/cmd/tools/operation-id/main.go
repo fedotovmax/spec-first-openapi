@@ -59,10 +59,29 @@ func title(s string) string {
 	return strings.ToUpper(s[:1]) + s[1:]
 }
 
+// sanitizePackage заменяет символы недопустимые в именах Go-пакетов на '_'
+func sanitizePackage(s string) string {
+	return strings.NewReplacer("-", "_", ".", "_").Replace(s)
+}
+
+func sortKeys(m map[string]struct{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
 func main() {
 	specPath := flag.String("spec", "", "путь к swagger")
 	outputPath := flag.String("out", "", "путь к выходу")
+	packageName := flag.String("package", "", "имя пакета (опционально, по умолчанию берётся из папки output)")
 	flag.Parse()
+
+	if *specPath == "" || *outputPath == "" {
+		log.Fatal("Необходимо указать -spec и -out")
+	}
 
 	loader := openapi3.NewLoader()
 	doc, err := loader.LoadFromFile(*specPath)
@@ -98,6 +117,12 @@ func main() {
 		}
 	}
 
+	// Определяем имя пакета: флаг -package имеет приоритет над именем папки
+	pkg := sanitizePackage(filepath.Base(filepath.Dir(*outputPath)))
+	if *packageName != "" {
+		pkg = sanitizePackage(*packageName)
+	}
+
 	// Сортировка для стабильной генерации
 	ids := sortKeys(uniqueIDs)
 	mws := sortKeys(uniqueMws)
@@ -118,7 +143,7 @@ func main() {
 		OpMiddlewares map[string][]string
 		MwPrefix      string
 	}{
-		Package:       filepath.Base(filepath.Dir(*outputPath)),
+		Package:       pkg,
 		IDs:           ids,
 		MwConsts:      mwConsts,
 		PathMap:       pathMap,
@@ -126,19 +151,15 @@ func main() {
 		MwPrefix:      mwPrefix,
 	}
 
-	f, _ := os.Create(*outputPath)
+	f, err := os.Create(*outputPath)
+	if err != nil {
+		log.Fatalf("Ошибка создания файла: %v", err)
+	}
 	defer f.Close()
 
 	funcMap := template.FuncMap{"title": title}
 	t := template.Must(template.New("ids").Funcs(funcMap).Parse(tpl))
-	t.Execute(f, data)
-}
-
-func sortKeys(m map[string]struct{}) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
+	if err := t.Execute(f, data); err != nil {
+		log.Fatalf("Ошибка генерации: %v", err)
 	}
-	sort.Strings(keys)
-	return keys
 }
