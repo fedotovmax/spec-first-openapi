@@ -1,8 +1,0 @@
-type: object
-required:
-  - message
-properties:
-  message:
-    type: string
-    description: Описание ошибки
-    example: Ресурс не найден 

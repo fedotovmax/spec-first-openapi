@@ -7,7 +7,6 @@ properties:
     description: Заголовок задачи
     example: Задача 1
     nullable: true
-    format: email
   email:
     type: string
     description: Адрес эл.почти

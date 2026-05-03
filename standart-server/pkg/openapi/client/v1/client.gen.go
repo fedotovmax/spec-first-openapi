@@ -94,7 +94,7 @@ type UpdateTask struct {
 	Status *Status `json:"status,omitempty"`
 
 	// Title Заголовок задачи
-	Title nullable.Nullable[openapi_types.Email] `json:"title,omitempty"`
+	Title nullable.Nullable[string] `json:"title,omitempty"`
 }
 
 // ValidationError defines model for validation_error.

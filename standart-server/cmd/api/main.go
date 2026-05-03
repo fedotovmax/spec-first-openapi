@@ -13,11 +13,11 @@ import (
 	"github.com/fedotovmax/spec-first-openapi/domain"
 	api_v1 "github.com/fedotovmax/spec-first-openapi/pkg/openapi/api/v1"
 	"github.com/fedotovmax/spec-first-openapi/pkg/openapi/operations_v1"
+	"github.com/fedotovmax/spec-first-openapi/pkg/openapi/swagger"
 	"github.com/fedotovmax/spec-first-openapi/transport/http/response"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/oapi-codegen/nullable"
-	"github.com/oapi-codegen/runtime/types"
 )
 
 func MapNullable[T any, R any](src nullable.Nullable[T], transform func(T) R) domain.Nullable[R] {
@@ -146,7 +146,7 @@ func (h *Server) PatchTaskByID(w http.ResponseWriter, r *http.Request, id api_v1
 	}
 
 	domainUpdate := domain.UpdateTask{
-		Title: MapNullable(dto.Title, func(e types.Email) string {
+		Title: MapNullable(dto.Title, func(e string) string {
 			return string(e)
 		}),
 		Email: string(dto.Email),
@@ -157,6 +157,7 @@ func (h *Server) PatchTaskByID(w http.ResponseWriter, r *http.Request, id api_v1
 
 	b, _ := json.MarshalIndent(domainUpdate, "", "  ")
 	fmt.Println(string(b))
+	w.Write([]byte("OK!!!"))
 }
 
 func main() {
@@ -200,6 +201,8 @@ func main() {
 	})
 
 	mux.Mount("/", v1Handler)
+
+	mux.Mount("/swagger", swagger.Handler())
 
 	port, err := strconv.Atoi(os.Getenv("PORT"))
 

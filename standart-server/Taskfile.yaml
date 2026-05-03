@@ -17,9 +17,15 @@ vars:
   OAPI_CODEGEN: "{{.PROJECT_GOBIN}}/oapi-codegen"
   OPERATION_ID_TOOL: "{{.PROJECT_GOBIN}}/operation-id"
 
-  GO_API_APP_ENTRYPOINT: "{{.ROOT_DIR}}/cmd/api/main.go"
-  GO_API_CLIENT_APP_ENTRYPOINT: "{{.ROOT_DIR}}/cmd/client/main.go"
+  GO_API_APP_ENTRYPOINT: "{{.ROOT_DIR}}/cmd/api"
+  GO_API_CLIENT_APP_ENTRYPOINT: "{{.ROOT_DIR}}/cmd/client"
   OPERATION_ID_TOOL_PATH: "{{.ROOT_DIR}}/cmd/tools/operation-id"
+
+  APPS_BIN: "{{.ROOT_DIR}}/bin"
+
+  SWAGGER_UI_TOOL: "{{.PROJECT_GOBIN}}/swagger-ui"
+  SWAGGER_UI_TOOL_PATH: "{{.ROOT_DIR}}/cmd/tools/swagger-ui"
+  SWAGGER_OUTPUT: "{{.ROOT_DIR}}/pkg/openapi/swagger/swagger.gen.go"
 
   OAPI_SERVER_TPL: "{{.ROOT_DIR}}/oapi-server.yaml.tpl"
   OAPI_CLIENT_TPL: "{{.ROOT_DIR}}/oapi-client.yaml.tpl"
@@ -58,13 +64,31 @@ tasks:
        - mkdir -p {{.PROJECT_GOBIN}}
        - GOBIN={{.PROJECT_GOBIN}} go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@{{.OAPI_CODEGEN_VERSION}}
 
+  swagger-ui-tool:install:
+    silent: true
+    status:
+      - "[ -f {{.SWAGGER_UI_TOOL}} ]"
+    cmds:
+      - echo "📦 Устанавливаем swagger-ui-tool..."
+      - mkdir -p {{.PROJECT_GOBIN}}
+      - GOBIN={{.PROJECT_GOBIN}} go install {{.SWAGGER_UI_TOOL_PATH}}
+
+  swagger:gen:
+    silent: true
+    deps: [swagger-ui-tool:install]
+    cmds:
+      - echo "🛠️ Генерация кода для swagger-ui..."
+      - mkdir -p {{.ROOT_DIR}}/pkg/openapi/swagger/bundles
+      - "{{.SWAGGER_UI_TOOL}} -bundles {{.ROOT_DIR}}/openapi/bundles -out {{.SWAGGER_OUTPUT}}"
+
   oapi-codegen:gen-v:
     silent: true
     internal: true
     deps: [ oapi-codegen:install, operation-id-tool:install, redocly-cli:install]
     vars:
       SOURCE_FILE: "{{.ROOT_DIR}}/openapi/src/{{.V}}/{{.V}}.openapi.yaml"
-      BUNDLE_FILE: "{{.ROOT_DIR}}/openapi/bundles/{{.V}}.openapi.bundle.yaml"
+      BUNDLE_FILE_YAML: "{{.ROOT_DIR}}/openapi/bundles/{{.V}}.openapi.bundle.yaml"
+      BUNDLE_FILE_JSON: "{{.ROOT_DIR}}/openapi/bundles/{{.V}}.openapi.bundle.json"
       TARGET_DIR: "{{.ROOT_DIR}}/pkg/openapi/api/{{.V}}"
       CLIENT_DIR: "{{.ROOT_DIR}}/pkg/openapi/client/{{.V}}"
       OPS_OUTPUT: "{{.ROOT_DIR}}/pkg/openapi/operations_{{.V}}/operations.go"
@@ -75,12 +99,14 @@ tasks:
     cmds:
       # 1. Сборка бандла
       - echo "🛠️ Сборка бандла для версии {{.V}}..."
+      - rm -rf {{.ROOT_DIR}}/openapi/bundles
       - mkdir -p {{.ROOT_DIR}}/openapi/bundles
-      - "{{.REDOCLY}} bundle {{.SOURCE_FILE}} -o {{.BUNDLE_FILE}}"
+      - "{{.REDOCLY}} bundle {{.SOURCE_FILE}} -o {{.BUNDLE_FILE_YAML}}"
+      - "{{.REDOCLY}} bundle {{.SOURCE_FILE}} -o {{.BUNDLE_FILE_JSON}}"
 
       # 2. Очистка и создание папок
       - echo "🧹 Подготовка папок для {{.V}}..."
-      - rm -rf {{.TARGET_DIR}} {{.CLIENT_DIR}}
+      - rm -rf {{.ROOT_DIR}}/pkg/openapi
       - mkdir -p {{.TARGET_DIR}} {{.CLIENT_DIR}}
 
       # 3. Генерация СЕРВЕРА через доп таску
@@ -91,7 +117,7 @@ tasks:
           TMP_CONFIG: "{{.TMP_SRV_CONFIG}}"
           PACKAGE: "api_{{.SAFE_V}}"
           OUTPUT_FILE: "{{.TARGET_DIR}}/api.gen.go"
-          BUNDLE: "{{.BUNDLE_FILE}}"
+          BUNDLE: "{{.BUNDLE_FILE_YAML}}"
 
       # 4. Генерация КЛИЕНТА через доп таску
       - echo "⚙️ Генерация КЛИЕНТА для {{.V}}..."
@@ -101,12 +127,12 @@ tasks:
           TMP_CONFIG: "{{.TMP_CLI_CONFIG}}"
           PACKAGE: "client_{{.SAFE_V}}"
           OUTPUT_FILE: "{{.CLIENT_DIR}}/client.gen.go"
-          BUNDLE: "{{.BUNDLE_FILE}}"
+          BUNDLE: "{{.BUNDLE_FILE_YAML}}"
 
       # 5. ID операций
       - echo "🆔 Генерация ID операций для {{.V}}..."
       - mkdir -p $(dirname {{.OPS_OUTPUT}})
-      - "{{.OPERATION_ID_TOOL}} -spec {{.BUNDLE_FILE}} -out {{.OPS_OUTPUT}} -package operations_{{.SAFE_V}}"
+      - "{{.OPERATION_ID_TOOL}} -spec {{.BUNDLE_FILE_YAML}} -out {{.OPS_OUTPUT}} -package operations_{{.SAFE_V}}"
 
   # Дополнительная таска для инкапсуляции логики шаблонизации и генерации
   internal:codegen:
@@ -129,17 +155,51 @@ tasks:
       - for: { var: API_VERSIONS }
         task: oapi-codegen:gen-v
         vars: { V: "{{.ITEM}}" }
+      - task: swagger:gen
 
   go-api:run:
     silent: true
     desc: "Запуск API Server Go"
     cmds:
       - echo "🏁 Запуск go приложения"
-      - go run {{.GO_API_APP_ENTRYPOINT}}
+      - go run {{.GO_API_APP_ENTRYPOINT}}/main.go
+
+
+  go-api:run-binary:
+    silent: true
+    desc: "Запуск API Server Go (Binary)"
+    cmds:
+      - echo "🏁 Запуск go приложения из бинарного файла"
+      - "{{.APPS_BIN}}/api"
+      
+
+  go-api:build:
+    silent: true
+    desc: "🛠️ Сборка API Server Go"
+    cmds:
+      - echo "🛠️ Сборка API Server Go"
+      - CGO_ENABLED=0 go build -ldflags="-s -w" -o {{.APPS_BIN}}/api {{.GO_API_APP_ENTRYPOINT}}
+
 
   go-client:run:
     silent: true
     desc: "Запуск API Client Go"
     cmds:
       - echo "🏁 Запуск go приложения"
-      - go run {{.GO_API_CLIENT_APP_ENTRYPOINT}}
+      - go run {{.GO_API_CLIENT_APP_ENTRYPOINT}}/main.go
+
+
+  go-client:run-binary:
+    silent: true
+    desc: "Запуск API client Go (Binary)"
+    cmds:
+      - echo "🏁 Запуск go приложения из бинарного файла"
+      - "{{.APPS_BIN}}/client"
+      
+
+  go-client:build:
+    silent: true
+    desc: "🛠️ Сборка API client Go"
+    cmds:
+      - echo "🛠️ Сборка API client Go"
+      - CGO_ENABLED=0 go build -ldflags="-s -w" -o {{.APPS_BIN}} {{.GO_API_CLIENT_APP_ENTRYPOINT}}
