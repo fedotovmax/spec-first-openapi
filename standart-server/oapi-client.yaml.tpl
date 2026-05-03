@@ -1,5 +1,4 @@
-package: {{ .Env.TPL_PACKAGE }}
-output: {{ .Env.TPL_OUTPUT }}
+# package и output подставляет printf
 generate:
   client: true
   models: true

@@ -9,11 +9,9 @@ vars:
   REDOCLY: "{{.NODE_MODULES_BIN}}/redocly"
 
   OAPI_CODEGEN_VERSION: "v2.6.0"
-  GOMPLATE_VERSION: "v5.0.0"
 
   PROJECT_GOBIN: "{{.ROOT_DIR}}/go/bin"
   OAPI_CODEGEN: "{{.PROJECT_GOBIN}}/oapi-codegen"
-  GOMPLATE: "{{.PROJECT_GOBIN}}/gomplate"
   OPERATION_ID_TOOL: "{{.PROJECT_GOBIN}}/operation-id"
 
   GO_API_APP_ENTRYPOINT: "{{.ROOT_DIR}}/cmd/api/main.go"
@@ -54,20 +52,10 @@ tasks:
        - mkdir -p {{.PROJECT_GOBIN}}
        - GOBIN={{.PROJECT_GOBIN}} go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@{{.OAPI_CODEGEN_VERSION}}
 
-  gomplate:install:
-    silent: true
-    desc: "Скачивает gomplate в подобных папку go/bin проекта"
-    status: 
-      - "[ -f {{.GOMPLATE}} ]"
-    cmds:
-       - echo "📦 Устанавливаем gomplate..."
-       - mkdir -p {{.PROJECT_GOBIN}}
-       - GOBIN={{.PROJECT_GOBIN}} go install github.com/hairyhenderson/gomplate/v5/cmd/gomplate@{{.GOMPLATE_VERSION}}
-
   oapi-codegen:gen-v:
     silent: true
     internal: true
-    deps: [ oapi-codegen:install, operation-id-tool:install, redocly-cli:install, gomplate:install ]
+    deps: [ oapi-codegen:install, operation-id-tool:install, redocly-cli:install]
     vars:
       SOURCE_FILE: "{{.ROOT_DIR}}/openapi/src/{{.V}}/{{.V}}.openapi.yaml"
       BUNDLE_FILE: "{{.ROOT_DIR}}/openapi/bundles/{{.V}}.openapi.bundle.yaml"
@@ -115,16 +103,14 @@ tasks:
   # Дополнительная таска для инкапсуляции логики шаблонизации и генерации
   internal:codegen:
     internal: true
-    silent: true 
+    silent: true
     cmds:
-      # Рендерим временный конфиг
       - |
-        TPL_PACKAGE={{.PACKAGE}} \
-        TPL_OUTPUT={{.OUTPUT_FILE}} \
-        {{.GOMPLATE}} -f {{.TPL}} -o {{.TMP_CONFIG}}
-      # Запускаем генерацию кода
+        printf 'package: %s\noutput: %s\n' \
+          '{{.PACKAGE}}' '{{.OUTPUT_FILE}}' > {{.TMP_CONFIG}}.tmp
+        cat {{.TPL}} >> {{.TMP_CONFIG}}.tmp
+        mv {{.TMP_CONFIG}}.tmp {{.TMP_CONFIG}}
       - "{{.OAPI_CODEGEN}} -config {{.TMP_CONFIG}} {{.BUNDLE}}"
-      # Удаляем временный файл
       - rm {{.TMP_CONFIG}}
 
   
