@@ -3,3 +3,5 @@ go
 node_modules
 .env
 old
+bin
+bundles
